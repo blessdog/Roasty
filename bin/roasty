@@ -291,10 +291,10 @@ cmd_help() {
   printf "    ${CYAN}version${RST}     Print version\n"
   echo ""
   printf "  ${BOLD}Quickstart:${RST}\n"
-  printf "    ${DIM}$${RST} brew install blessdog/tap/roasty\n"
-  printf "    ${DIM}$${RST} roasty setup\n"
-  printf "    ${DIM}$${RST} ${DIM}# Cmd+D in Ghostty to split, then:${RST}\n"
-  printf "    ${DIM}$${RST} roasty\n"
+  printf "    ${DIM}\$${RST} brew install blessdog/tap/roasty\n"
+  printf "    ${DIM}\$${RST} roasty setup\n"
+  printf "    ${DIM}\$${RST} ${DIM}# Cmd+D in Ghostty to split, then:${RST}\n"
+  printf "    ${DIM}\$${RST} roasty\n"
   echo ""
 }
 
