@@ -1,0 +1,317 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+VERSION="1.0.0"
+DASHBOARD_DIR="$HOME/.claude/dashboard"
+SETTINGS_FILE="$HOME/.claude/settings.json"
+EVENTS_FILE="$DASHBOARD_DIR/events.jsonl"
+
+# --- Resolve the real location of this script (follows symlinks, works on macOS) ---
+resolve_path() {
+  local file="$1"
+  while [ -L "$file" ]; do
+    local dir
+    dir="$(cd "$(dirname "$file")" && pwd)"
+    file="$(readlink "$file")"
+    [[ "$file" != /* ]] && file="$dir/$file"
+  done
+  echo "$file"
+}
+
+ROASTY_BIN="$(resolve_path "${BASH_SOURCE[0]}")"
+ROASTY_ROOT="$(cd "$(dirname "$ROASTY_BIN")/.." && pwd)"
+
+# --- Colors ---
+RED='\033[31m'
+GREEN='\033[32m'
+YELLOW='\033[33m'
+CYAN='\033[36m'
+DIM='\033[2m'
+BOLD='\033[1m'
+RST='\033[0m'
+
+# --- Helpers ---
+info()  { printf "${CYAN}=>${RST} %s\n" "$*"; }
+ok()    { printf "${GREEN}=>${RST} %s\n" "$*"; }
+warn()  { printf "${YELLOW}=>${RST} %s\n" "$*"; }
+err()   { printf "${RED}=>${RST} %s\n" "$*" >&2; }
+
+# --- Hook settings template (as jq filter) ---
+HOOKS_JSON='{
+  "PostToolUse": [{
+    "matcher": "",
+    "hooks": [{"type": "command", "command": "~/.claude/dashboard/hooks/post_tool_use.sh"}]
+  }],
+  "PostToolUseFailure": [{
+    "matcher": "",
+    "hooks": [{"type": "command", "command": "~/.claude/dashboard/hooks/post_tool_use_failure.sh"}]
+  }],
+  "SubagentStart": [{
+    "matcher": "",
+    "hooks": [{"type": "command", "command": "~/.claude/dashboard/hooks/subagent_start.sh"}]
+  }],
+  "SubagentStop": [{
+    "matcher": "",
+    "hooks": [{"type": "command", "command": "~/.claude/dashboard/hooks/subagent_stop.sh"}]
+  }],
+  "Stop": [{
+    "hooks": [{"type": "command", "command": "~/.claude/dashboard/hooks/stop.sh"}]
+  }],
+  "SessionStart": [{
+    "matcher": "",
+    "hooks": [{"type": "command", "command": "~/.claude/dashboard/hooks/session_start.sh"}]
+  }],
+  "SessionEnd": [{
+    "matcher": "",
+    "hooks": [{"type": "command", "command": "~/.claude/dashboard/hooks/session_end.sh"}]
+  }]
+}'
+
+STATUSLINE_JSON='{
+  "type": "command",
+  "command": "~/.claude/dashboard/statusline.sh",
+  "padding": 2
+}'
+
+# ============================================================
+# Commands
+# ============================================================
+
+cmd_setup() {
+  echo ""
+  printf "${BOLD}${CYAN}  Roasty Setup${RST}\n"
+  echo ""
+
+  # 1. Create directory structure
+  info "Creating ~/.claude/dashboard/"
+  mkdir -p "$DASHBOARD_DIR/hooks"
+
+  # 2. Symlink (or copy) resources from the install location
+  local src="$ROASTY_ROOT"
+
+  info "Installing dashboard files..."
+  for f in dashboard.py statusline.sh; do
+    if [ -f "$src/$f" ]; then
+      ln -sf "$src/$f" "$DASHBOARD_DIR/$f"
+    fi
+  done
+
+  for f in "$src/hooks/"*.sh; do
+    if [ -f "$f" ]; then
+      ln -sf "$f" "$DASHBOARD_DIR/hooks/$(basename "$f")"
+    fi
+  done
+
+  # Ensure scripts are executable
+  chmod +x "$DASHBOARD_DIR/statusline.sh" "$DASHBOARD_DIR/dashboard.py" 2>/dev/null || true
+  chmod +x "$DASHBOARD_DIR/hooks/"*.sh 2>/dev/null || true
+
+  # 3. Create Python venv + install Rich
+  if [ ! -f "$DASHBOARD_DIR/venv/bin/python3" ]; then
+    info "Creating Python virtual environment..."
+    python3 -m venv "$DASHBOARD_DIR/venv"
+  fi
+
+  if ! "$DASHBOARD_DIR/venv/bin/python3" -c "import rich" 2>/dev/null; then
+    info "Installing Rich library..."
+    "$DASHBOARD_DIR/venv/bin/pip" install --quiet rich
+  else
+    ok "Rich already installed"
+  fi
+
+  # 4. Create events file
+  touch "$EVENTS_FILE"
+
+  # 5. Update settings.json
+  info "Configuring Claude Code hooks..."
+  update_settings
+
+  echo ""
+  ok "Roasty is ready!"
+  echo ""
+  printf "  ${DIM}Usage:${RST}\n"
+  printf "  ${DIM}1.${RST} Open Ghostty\n"
+  printf "  ${DIM}2.${RST} Cmd+D to split right\n"
+  printf "  ${DIM}3.${RST} Run ${CYAN}roasty${RST} in the right pane\n"
+  printf "  ${DIM}4.${RST} Cmd+H to go back, start ${CYAN}claude${RST}\n"
+  echo ""
+}
+
+update_settings() {
+  mkdir -p "$(dirname "$SETTINGS_FILE")"
+
+  if [ ! -f "$SETTINGS_FILE" ]; then
+    echo '{}' > "$SETTINGS_FILE"
+  fi
+
+  # Merge hooks and statusLine into existing settings using jq
+  local tmp
+  tmp=$(mktemp)
+
+  jq --argjson hooks "$HOOKS_JSON" \
+     --argjson statusLine "$STATUSLINE_JSON" \
+     '.hooks = (.hooks // {}) * $hooks | .statusLine = $statusLine' \
+     "$SETTINGS_FILE" > "$tmp" && mv "$tmp" "$SETTINGS_FILE"
+
+  ok "Updated ~/.claude/settings.json"
+}
+
+remove_settings() {
+  if [ ! -f "$SETTINGS_FILE" ]; then
+    return
+  fi
+
+  local tmp
+  tmp=$(mktemp)
+
+  # Remove only the Roasty hooks (ones pointing to ~/.claude/dashboard/hooks/)
+  # and the statusLine if it points to our script
+  jq '
+    .hooks = (
+      .hooks // {} | to_entries | map(
+        .value = [.value[] | select(
+          (.hooks // []) | all(
+            (.command // "") | test("~/.claude/dashboard/hooks/") | not
+          )
+        )] | select(.value | length > 0)
+      ) | from_entries
+    ) |
+    if (.statusLine.command // "") | test("~/.claude/dashboard/statusline") then del(.statusLine) else . end |
+    if (.hooks | length) == 0 then del(.hooks) else . end
+  ' "$SETTINGS_FILE" > "$tmp" && mv "$tmp" "$SETTINGS_FILE"
+
+  ok "Removed Roasty config from ~/.claude/settings.json"
+}
+
+cmd_launch() {
+  local venv_python="$DASHBOARD_DIR/venv/bin/python3"
+  local dashboard_py="$DASHBOARD_DIR/dashboard.py"
+
+  if [ ! -f "$venv_python" ] || [ ! -f "$dashboard_py" ]; then
+    err "Roasty is not set up yet. Run: roasty setup"
+    exit 1
+  fi
+
+  exec "$venv_python" "$dashboard_py"
+}
+
+cmd_uninstall() {
+  echo ""
+  printf "${BOLD}${YELLOW}  Roasty Uninstall${RST}\n"
+  echo ""
+
+  info "Removing hooks from settings.json..."
+  remove_settings
+
+  info "Removing ~/.claude/dashboard/ files..."
+  rm -rf "$DASHBOARD_DIR/venv"
+  rm -rf "$DASHBOARD_DIR/hooks"
+  rm -f "$DASHBOARD_DIR/dashboard.py"
+  rm -f "$DASHBOARD_DIR/statusline.sh"
+  rm -f "$DASHBOARD_DIR/events.jsonl"
+  rmdir "$DASHBOARD_DIR" 2>/dev/null || true
+
+  echo ""
+  ok "Roasty uninstalled. Run 'brew uninstall roasty' to remove the formula."
+  echo ""
+}
+
+cmd_status() {
+  echo ""
+  printf "${BOLD}${CYAN} 󰧑 Roasty v${VERSION}${RST}\n"
+  echo ""
+
+  # Check dashboard.py
+  if [ -f "$DASHBOARD_DIR/dashboard.py" ]; then
+    ok "dashboard.py installed"
+  else
+    err "dashboard.py missing — run: roasty setup"
+  fi
+
+  # Check venv
+  if [ -f "$DASHBOARD_DIR/venv/bin/python3" ]; then
+    ok "Python venv ready"
+  else
+    err "Python venv missing — run: roasty setup"
+  fi
+
+  # Check Rich
+  if "$DASHBOARD_DIR/venv/bin/python3" -c "import rich" 2>/dev/null; then
+    ok "Rich library installed"
+  else
+    err "Rich library missing — run: roasty setup"
+  fi
+
+  # Check hooks
+  local hook_count=0
+  for h in post_tool_use post_tool_use_failure subagent_start subagent_stop stop session_start session_end; do
+    [ -f "$DASHBOARD_DIR/hooks/${h}.sh" ] && ((hook_count++))
+  done
+  if [ "$hook_count" -eq 7 ]; then
+    ok "All 7 hooks installed"
+  else
+    warn "Only $hook_count/7 hooks found — run: roasty setup"
+  fi
+
+  # Check settings.json
+  if [ -f "$SETTINGS_FILE" ] && jq -e '.hooks.PostToolUse' "$SETTINGS_FILE" >/dev/null 2>&1; then
+    ok "Claude Code hooks configured"
+  else
+    err "Hooks not in settings.json — run: roasty setup"
+  fi
+
+  if [ -f "$SETTINGS_FILE" ] && jq -e '.statusLine' "$SETTINGS_FILE" >/dev/null 2>&1; then
+    ok "Status line configured"
+  else
+    warn "Status line not configured"
+  fi
+
+  # Check jq
+  if command -v jq >/dev/null 2>&1; then
+    ok "jq available"
+  else
+    err "jq not found — install with: brew install jq"
+  fi
+
+  echo ""
+}
+
+cmd_help() {
+  echo ""
+  printf "${BOLD}${CYAN} 󰧑 Roasty v${VERSION}${RST} — Claude Code Dashboard\n"
+  echo ""
+  printf "  ${BOLD}Usage:${RST} roasty [command]\n"
+  echo ""
+  printf "  ${BOLD}Commands:${RST}\n"
+  printf "    ${CYAN}setup${RST}       Install hooks, create venv, configure Claude Code\n"
+  printf "    ${CYAN}launch${RST}      Start the dashboard TUI ${DIM}(default)${RST}\n"
+  printf "    ${CYAN}status${RST}      Check if everything is configured\n"
+  printf "    ${CYAN}uninstall${RST}   Remove hooks and dashboard files\n"
+  printf "    ${CYAN}help${RST}        Show this help\n"
+  printf "    ${CYAN}version${RST}     Print version\n"
+  echo ""
+  printf "  ${BOLD}Quickstart:${RST}\n"
+  printf "    ${DIM}$${RST} brew install blessdog/tap/roasty\n"
+  printf "    ${DIM}$${RST} roasty setup\n"
+  printf "    ${DIM}$${RST} ${DIM}# Cmd+D in Ghostty to split, then:${RST}\n"
+  printf "    ${DIM}$${RST} roasty\n"
+  echo ""
+}
+
+# ============================================================
+# Main
+# ============================================================
+
+case "${1:-launch}" in
+  setup)     cmd_setup ;;
+  launch)    cmd_launch ;;
+  uninstall) cmd_uninstall ;;
+  status)    cmd_status ;;
+  help|--help|-h) cmd_help ;;
+  version|--version|-v) echo "roasty $VERSION" ;;
+  *)
+    err "Unknown command: $1"
+    cmd_help
+    exit 1
+    ;;
+esac
