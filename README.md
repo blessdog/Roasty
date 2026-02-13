@@ -26,23 +26,27 @@ Ghostty Terminal
 
 ## Install
 
-### Homebrew (recommended)
+### One-liner (recommended)
+
+```bash
+curl -sL https://raw.githubusercontent.com/blessdog/Roasty/main/install.sh | bash
+```
+
+No Homebrew, no Xcode required — just Python 3 and jq.
+
+### Homebrew
 
 ```bash
 brew install blessdog/tap/roasty
 roasty setup
 ```
 
-That's it. `roasty setup` creates a Python venv, installs Rich, configures Claude Code hooks, and sets up the status line — all automatically.
-
 ### Manual
 
 ```bash
 git clone https://github.com/blessdog/Roasty.git ~/.claude/dashboard
-~/.claude/dashboard/setup.sh
+~/.claude/dashboard/bin/roasty setup
 ```
-
-Then manually merge the hooks config into `~/.claude/settings.json` — see [Manual Configuration](#manual-configuration) below.
 
 ## Usage
 
