@@ -87,20 +87,33 @@ cmd_setup() {
   mkdir -p "$DASHBOARD_DIR/hooks"
 
   # 2. Symlink (or copy) resources from the install location
+  # Brew puts files in libexec/, git clone keeps them at root
   local src="$ROASTY_ROOT"
+  if [ -f "$ROASTY_ROOT/libexec/dashboard.py" ]; then
+    src="$ROASTY_ROOT/libexec"
+  fi
 
   info "Installing dashboard files..."
   for f in dashboard.py statusline.sh; do
     if [ -f "$src/$f" ]; then
       ln -sf "$src/$f" "$DASHBOARD_DIR/$f"
+      ok "Linked $f"
+    else
+      err "Could not find $f in $src"
     fi
   done
 
-  for f in "$src/hooks/"*.sh; do
-    if [ -f "$f" ]; then
-      ln -sf "$f" "$DASHBOARD_DIR/hooks/$(basename "$f")"
-    fi
-  done
+  local hooks_src="$src/hooks"
+  if [ -d "$hooks_src" ]; then
+    for f in "$hooks_src/"*.sh; do
+      if [ -f "$f" ]; then
+        ln -sf "$f" "$DASHBOARD_DIR/hooks/$(basename "$f")"
+      fi
+    done
+    ok "Linked hooks"
+  else
+    err "Could not find hooks directory in $src"
+  fi
 
   # Ensure scripts are executable
   chmod +x "$DASHBOARD_DIR/statusline.sh" "$DASHBOARD_DIR/dashboard.py" 2>/dev/null || true
@@ -276,6 +289,43 @@ cmd_status() {
   echo ""
 }
 
+cmd_ghostty() {
+  local ghostty_config_dir="$HOME/.config/ghostty"
+  local ghostty_config="$ghostty_config_dir/config"
+  local src="$ROASTY_ROOT"
+  if [ -f "$ROASTY_ROOT/libexec/ghostty.config" ]; then
+    src="$ROASTY_ROOT/libexec"
+  fi
+  local roasty_config="$src/ghostty.config"
+
+  if [ ! -f "$roasty_config" ]; then
+    err "ghostty.config not found in $src"
+    exit 1
+  fi
+
+  echo ""
+  printf "${BOLD}${CYAN}  Ghostty Config${RST}\n"
+  echo ""
+
+  if [ -f "$ghostty_config" ]; then
+    warn "Existing config found at $ghostty_config"
+    printf "  Overwrite? [y/N] "
+    read -r reply
+    if [[ ! "$reply" =~ ^[Yy]$ ]]; then
+      info "Skipped. You can manually copy from: $roasty_config"
+      return
+    fi
+  fi
+
+  mkdir -p "$ghostty_config_dir"
+  cp "$roasty_config" "$ghostty_config"
+  ok "Installed Ghostty config to $ghostty_config"
+  echo ""
+  info "Restart Ghostty to apply changes."
+  info "You may also want the Nerd Font: brew install --cask font-jetbrains-mono-nerd-font"
+  echo ""
+}
+
 cmd_help() {
   echo ""
   printf "${BOLD}${CYAN} 󰧑 Roasty v${VERSION}${RST} — Claude Code Dashboard\n"
@@ -285,6 +335,7 @@ cmd_help() {
   printf "  ${BOLD}Commands:${RST}\n"
   printf "    ${CYAN}setup${RST}       Install hooks, create venv, configure Claude Code\n"
   printf "    ${CYAN}launch${RST}      Start the dashboard TUI ${DIM}(default)${RST}\n"
+  printf "    ${CYAN}ghostty${RST}     Install recommended Ghostty config ${DIM}(tabs, splits, theme)${RST}\n"
   printf "    ${CYAN}status${RST}      Check if everything is configured\n"
   printf "    ${CYAN}uninstall${RST}   Remove hooks and dashboard files\n"
   printf "    ${CYAN}help${RST}        Show this help\n"
@@ -293,6 +344,7 @@ cmd_help() {
   printf "  ${BOLD}Quickstart:${RST}\n"
   printf "    ${DIM}\$${RST} brew install blessdog/tap/roasty\n"
   printf "    ${DIM}\$${RST} roasty setup\n"
+  printf "    ${DIM}\$${RST} roasty ghostty  ${DIM}# optional: tabs, splits, Citruszest theme${RST}\n"
   printf "    ${DIM}\$${RST} ${DIM}# Cmd+D in Ghostty to split, then:${RST}\n"
   printf "    ${DIM}\$${RST} roasty\n"
   echo ""
@@ -305,6 +357,7 @@ cmd_help() {
 case "${1:-launch}" in
   setup)     cmd_setup ;;
   launch)    cmd_launch ;;
+  ghostty)   cmd_ghostty ;;
   uninstall) cmd_uninstall ;;
   status)    cmd_status ;;
   help|--help|-h) cmd_help ;;
