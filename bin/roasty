@@ -230,9 +230,9 @@ cmd_open() {
   if [ -n "${GHOSTTY_RESOURCES_DIR:-}" ]; then
     printf "  ${DIM}Cmd+D${RST}              Split pane\n"
     printf "  ${CYAN}roasty${RST}             Launch dashboard in new pane\n"
-    printf "  ${DIM}Cmd+Shift+←/→${RST}      Resize panes\n"
+    printf "  ${DIM}Ctrl+Cmd+←/→${RST}      Resize panes\n"
     printf "  ${DIM}Cmd+Shift+F${RST}        Zoom/unzoom a pane\n"
-    printf "  ${DIM}Cmd+Shift+=${RST}        Equalize panes\n"
+    printf "  ${DIM}Ctrl+Cmd+=${RST}         Equalize panes\n"
   else
     printf "  Tip: Use ${CYAN}Ghostty${RST} terminal for the best split-pane experience\n"
     printf "  ${DIM}https://ghostty.org${RST}\n"
@@ -398,9 +398,9 @@ cmd_help() {
   printf "    ${DIM}Cmd+D${RST}              Split right\n"
   printf "    ${DIM}Cmd+Shift+D${RST}        Split down\n"
   printf "    ${DIM}Cmd+H/L${RST}            Navigate splits\n"
-  printf "    ${DIM}Cmd+Shift+←/→${RST}      Resize panes\n"
+  printf "    ${DIM}Ctrl+Cmd+←/→${RST}      Resize panes\n"
   printf "    ${DIM}Cmd+Shift+F${RST}        Zoom/unzoom pane\n"
-  printf "    ${DIM}Cmd+Shift+=${RST}        Equalize panes\n"
+  printf "    ${DIM}Ctrl+Cmd+=${RST}         Equalize panes\n"
   echo ""
 }
 
