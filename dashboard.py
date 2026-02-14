@@ -418,26 +418,31 @@ def build_header(state: DashboardState) -> Panel:
             (f"{branch}{dirty_marker}", COLORS["orange"]),
         ))
 
-    root = state.get_project_root()
-    if root:
-        short_cwd = shorten_path(root, 30)
-        parts.append(Text.assemble(
-            ("\uf07b ", COLORS["dim"]),
-            (short_cwd, COLORS["dim"]),
-        ))
-
-    header_text = Text(" ")
+    header_line = Text(" ")
     for i, part in enumerate(parts):
         if i > 0:
-            header_text.append("  ")
-        header_text.append_text(part)
+            header_line.append("  ")
+        header_line.append_text(part)
+
+    # Full project path on its own line
+    root = state.get_project_root()
+    if root:
+        path_line = Text.assemble(
+            (" \uf07b ", COLORS["dim"]),
+            (root, f"bold {COLORS['dim']}"),
+        )
+        content = Text.assemble(header_line, "\n", path_line)
+        h = 4
+    else:
+        content = header_line
+        h = 3
 
     return Panel(
-        header_text,
+        content,
         title="[bold]CLAUDE CODE[/bold]",
         title_align="left",
         border_style=COLORS["border"],
-        height=3,
+        height=h,
     )
 
 
@@ -762,12 +767,13 @@ def build_standard_layout(state: DashboardState, height: int) -> Layout:
     layout = Layout()
 
     has_tree = bool(state.file_tree.entries)
+    header_h = 4 if state.get_project_root() else 3
 
     # Decide how much space for file tree based on terminal height
     if has_tree and height >= 35:
         tree_lines = min(len(state.file_tree.entries) + 2, 14)
         layout.split_column(
-            Layout(name="header", size=3),
+            Layout(name="header", size=header_h),
             Layout(name="tree", size=tree_lines),
             Layout(name="files", ratio=1),
             Layout(name="tools", ratio=1),
@@ -778,7 +784,7 @@ def build_standard_layout(state: DashboardState, height: int) -> Layout:
     elif has_tree and height >= 28:
         # Shorter terminal: smaller tree
         layout.split_column(
-            Layout(name="header", size=3),
+            Layout(name="header", size=header_h),
             Layout(name="tree", size=8),
             Layout(name="files", ratio=1),
             Layout(name="tools", ratio=1),
@@ -789,7 +795,7 @@ def build_standard_layout(state: DashboardState, height: int) -> Layout:
     else:
         # No tree — too short or no project
         layout.split_column(
-            Layout(name="header", size=3),
+            Layout(name="header", size=header_h),
             Layout(name="files", ratio=1),
             Layout(name="tools", ratio=1),
             Layout(name="lower", size=12),
