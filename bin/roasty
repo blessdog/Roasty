@@ -205,8 +205,16 @@ cmd_launch() {
     exit 1
   fi
 
-  # Pass through any extra args (--compact, --project, etc.)
-  exec "$venv_python" "$dashboard_py" "$@"
+  # Auto-pass project root unless user already specified --project/-p
+  local has_project=false
+  for arg in "$@"; do
+    case "$arg" in --project|-p) has_project=true ;; esac
+  done
+  if [ "$has_project" = false ]; then
+    exec "$venv_python" "$dashboard_py" --project "$PWD" "$@"
+  else
+    exec "$venv_python" "$dashboard_py" "$@"
+  fi
 }
 
 cmd_open() {
@@ -376,9 +384,10 @@ cmd_help() {
   printf "  ${BOLD}Usage:${RST} roasty [command]\n"
   echo ""
   printf "  ${BOLD}Commands:${RST}\n"
+  printf "    ${CYAN}roasty${RST}      Open project here + launch Claude Code ${DIM}(default)${RST}\n"
+  printf "    ${CYAN}launch${RST}      Start the dashboard TUI\n"
+  printf "    ${CYAN}open${RST} ${DIM}<dir>${RST}  Open a specific project directory\n"
   printf "    ${CYAN}setup${RST}       Install hooks, create venv, configure Claude Code\n"
-  printf "    ${CYAN}launch${RST}      Start the dashboard TUI ${DIM}(default)${RST}\n"
-  printf "    ${CYAN}open${RST} ${DIM}<dir>${RST}  Open a project — sets dir and launches Claude Code\n"
   printf "    ${CYAN}ghostty${RST}     Install recommended Ghostty config ${DIM}(tabs, splits, resize)${RST}\n"
   printf "    ${CYAN}status${RST}      Check if everything is configured\n"
   printf "    ${CYAN}uninstall${RST}   Remove hooks and dashboard files\n"
@@ -408,7 +417,8 @@ cmd_help() {
 # Main
 # ============================================================
 
-case "${1:-launch}" in
+case "${1:-}" in
+  "")        cmd_open "." ;;
   setup)     cmd_setup ;;
   launch)    shift; cmd_launch "$@" ;;
   open)      shift; cmd_open "$@" ;;
