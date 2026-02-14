@@ -4,6 +4,7 @@
 set -euo pipefail
 
 INPUT=$(cat)
+EVENTS_FILE="$HOME/.claude/dashboard/events.jsonl"
 
 # Extract fields
 MODEL=$(echo "$INPUT" | jq -r '.model.display_name // "Claude"')
@@ -14,6 +15,12 @@ LINES_DEL=$(echo "$INPUT" | jq -r '.cost.total_lines_removed // 0')
 USED_PCT=$(echo "$INPUT" | jq -r '.context_window.used_percentage // 0')
 INPUT_TOKENS=$(echo "$INPUT" | jq -r '.context_window.total_input_tokens // 0')
 OUTPUT_TOKENS=$(echo "$INPUT" | jq -r '.context_window.total_output_tokens // 0')
+
+# Last edited file (from events.jsonl)
+LAST_FILE=""
+if [ -f "$EVENTS_FILE" ]; then
+  LAST_FILE=$(tail -50 "$EVENTS_FILE" | jq -r 'select(.category == "file_write" or .category == "file_modify") | .file_path' 2>/dev/null | tail -1)
+fi
 
 # Format cost
 if (( $(echo "$COST < 0.01" | bc -l 2>/dev/null || echo 0) )); then
@@ -70,14 +77,20 @@ fi
 # Nerd Font glyph for AI/model
 MODEL_GLYPH="󰧑"
 
+# Shorten file path for display
+SHORT_FILE=""
+if [ -n "$LAST_FILE" ]; then
+  SHORT_FILE="${LAST_FILE/#$HOME/~}"
+  if [ ${#SHORT_FILE} -gt 40 ]; then
+    SHORT_FILE="$(basename "$LAST_FILE")"
+  fi
+fi
+
 # Build the status line
-printf "${CYAN}${MODEL_GLYPH} %s${RST} ${DIM}│${RST} ${YELLOW}%s${RST} ${DIM}│${RST} %s ${DIM}│${RST} ${GREEN}+%s${RST}/${RED}-%s${RST} ${DIM}│${RST} ${BAR_COLOR}%s${RST} %s%% ${DIM}│${RST} %s/%s" \
-  "$MODEL" \
-  "$COST_FMT" \
-  "$DUR_FMT" \
-  "$LINES_ADD" \
-  "$LINES_DEL" \
-  "$BAR" \
-  "$USED_PCT" \
-  "$IN_FMT" \
-  "$OUT_FMT"
+printf "${CYAN}${MODEL_GLYPH} %s${RST} ${DIM}│${RST} ${YELLOW}%s${RST} ${DIM}│${RST} %s ${DIM}│${RST} ${GREEN}+%s${RST}/${RED}-%s${RST}" \
+  "$MODEL" "$COST_FMT" "$DUR_FMT" "$LINES_ADD" "$LINES_DEL"
+if [ -n "$SHORT_FILE" ]; then
+  printf " ${DIM}│${RST} ${CYAN} %s${RST}" "$SHORT_FILE"
+fi
+printf "\n${BAR_COLOR}%s${RST} %s%% ${DIM}│${RST} %s/%s" \
+  "$BAR" "$USED_PCT" "$IN_FMT" "$OUT_FMT"
