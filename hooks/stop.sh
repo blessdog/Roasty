@@ -7,7 +7,7 @@ INPUT=$(cat)
 
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty')
 
-jq -n --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+jq -cn --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
       --arg event "stop" \
       --arg sid "$SESSION_ID" \
   '{timestamp: $ts, event: $event, session_id: $sid}' \

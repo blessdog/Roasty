@@ -9,7 +9,7 @@ AGENT_ID=$(echo "$INPUT" | jq -r '.agent_id // empty')
 AGENT_TYPE=$(echo "$INPUT" | jq -r '.agent_type // empty')
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty')
 
-jq -n --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+jq -cn --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
       --arg event "subagent_stop" \
       --arg sid "$SESSION_ID" \
       --arg aid "$AGENT_ID" \

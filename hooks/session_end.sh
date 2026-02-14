@@ -8,7 +8,7 @@ INPUT=$(cat)
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty')
 REASON=$(echo "$INPUT" | jq -r '.reason // empty')
 
-jq -n --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+jq -cn --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
       --arg event "session_end" \
       --arg sid "$SESSION_ID" \
       --arg reason "$REASON" \

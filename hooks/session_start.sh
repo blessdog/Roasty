@@ -22,7 +22,7 @@ fi
 # Ensure file exists
 touch "$EVENTS_FILE"
 
-jq -n --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+jq -cn --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
       --arg event "session_start" \
       --arg sid "$SESSION_ID" \
       --arg model "$MODEL" \

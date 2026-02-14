@@ -53,7 +53,7 @@ case "$TOOL_NAME" in
     ;;
 esac
 
-jq -n --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+jq -cn --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
       --arg event "tool_use" \
       --arg sid "$SESSION_ID" \
       --arg tool "$TOOL_NAME" \
