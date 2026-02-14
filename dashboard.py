@@ -172,7 +172,14 @@ class DashboardState:
             self.session_start_time = ts
             return
 
-        if self.session_id and event.get("session_id") != self.session_id:
+        # Auto-adopt session from first event if no session_start was seen
+        event_sid = event.get("session_id", "")
+        if not self.session_id and event_sid:
+            self.session_id = event_sid
+            if not self.session_start_time:
+                self.session_start_time = ts
+
+        if self.session_id and event_sid != self.session_id:
             return
 
         if etype == "tool_use":
@@ -763,13 +770,83 @@ def build_compact_stats(state: DashboardState) -> Panel:
 # Layout Builders
 # ============================================================
 
+def build_waiting_panel() -> Panel:
+    """Shown when there's no activity yet — replaces empty panels."""
+    lines = [
+        Text(""),
+        Text.assemble(
+            ("  Waiting for Claude Code activity...", COLORS["dim"]),
+        ),
+        Text(""),
+        Text.assemble(
+            ("  The dashboard updates live as Claude works.", COLORS["dim"]),
+        ),
+        Text.assemble(
+            ("  Start a conversation and you'll see:", COLORS["dim"]),
+        ),
+        Text(""),
+        Text.assemble(
+            ("  \uf044 ", COLORS["green"]),
+            ("File reads, writes, and edits", COLORS["fg"]),
+        ),
+        Text.assemble(
+            ("  \ue795 ", COLORS["orange"]),
+            ("Terminal commands and builds", COLORS["fg"]),
+        ),
+        Text.assemble(
+            ("  \uf085 ", COLORS["cyan"]),
+            ("Sub-agents working in parallel", COLORS["fg"]),
+        ),
+        Text.assemble(
+            ("  \uf002 ", COLORS["blue"]),
+            ("Code searches and web lookups", COLORS["fg"]),
+        ),
+    ]
+    content = Text("\n").join(lines)
+    return Panel(
+        content,
+        border_style=COLORS["border"],
+    )
+
+
 def build_standard_layout(state: DashboardState, height: int) -> Layout:
     layout = Layout()
 
     has_tree = bool(state.file_tree.entries)
+    has_activity = bool(state.tool_events or state.file_events)
     header_h = 4 if state.get_project_root() else 3
 
-    # Decide how much space for file tree based on terminal height
+    if not has_activity:
+        # No activity yet — show tree + helpful waiting message
+        if has_tree:
+            tree_lines = min(len(state.file_tree.entries) + 2, 14)
+            layout.split_column(
+                Layout(name="header", size=header_h),
+                Layout(name="tree", size=tree_lines),
+                Layout(name="waiting"),
+                Layout(name="footer", size=3),
+            )
+            layout["tree"].update(build_tree_panel(state, max_lines=tree_lines - 2))
+        else:
+            layout.split_column(
+                Layout(name="header", size=header_h),
+                Layout(name="waiting"),
+                Layout(name="footer", size=3),
+            )
+        layout["header"].update(build_header(state))
+        layout["waiting"].update(build_waiting_panel())
+
+        now = datetime.now().strftime("%H:%M:%S")
+        footer = Text.assemble(
+            (" ", ""),
+            ("Dashboard", f"bold {COLORS['dim']}"),
+            (f"  \u2502  {now}", COLORS["dim"]),
+            (f"  \u2502  Refresh: {REFRESH_INTERVAL}s", COLORS["dim"]),
+        )
+        layout["footer"].update(Panel(footer, border_style=COLORS["border"], height=3))
+        return layout
+
+    # Has activity — show full layout
     if has_tree and height >= 35:
         tree_lines = min(len(state.file_tree.entries) + 2, 14)
         layout.split_column(
@@ -782,7 +859,6 @@ def build_standard_layout(state: DashboardState, height: int) -> Layout:
         )
         layout["tree"].update(build_tree_panel(state, max_lines=tree_lines - 2))
     elif has_tree and height >= 28:
-        # Shorter terminal: smaller tree
         layout.split_column(
             Layout(name="header", size=header_h),
             Layout(name="tree", size=8),
@@ -793,7 +869,6 @@ def build_standard_layout(state: DashboardState, height: int) -> Layout:
         )
         layout["tree"].update(build_tree_panel(state, max_lines=6))
     else:
-        # No tree — too short or no project
         layout.split_column(
             Layout(name="header", size=header_h),
             Layout(name="files", ratio=1),
