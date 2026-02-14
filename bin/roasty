@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="1.0.0"
+VERSION="1.1.0"
 DASHBOARD_DIR="$HOME/.claude/dashboard"
 SETTINGS_FILE="$HOME/.claude/settings.json"
 EVENTS_FILE="$DASHBOARD_DIR/events.jsonl"
@@ -205,7 +205,50 @@ cmd_launch() {
     exit 1
   fi
 
-  exec "$venv_python" "$dashboard_py"
+  # Pass through any extra args (--compact, --project, etc.)
+  exec "$venv_python" "$dashboard_py" "$@"
+}
+
+cmd_open() {
+  local project_dir="${1:-.}"
+  project_dir="$(cd "$project_dir" 2>/dev/null && pwd)" || {
+    err "Directory not found: $1"
+    exit 1
+  }
+
+  local project_name
+  project_name="$(basename "$project_dir")"
+
+  # Save project path for dashboard to read
+  echo "$project_dir" > "$DASHBOARD_DIR/.project_path"
+
+  echo ""
+  printf "${BOLD}${CYAN}  %s${RST}\n" "$project_name"
+  printf "  ${DIM}%s${RST}\n" "$project_dir"
+  echo ""
+
+  if [ -n "${GHOSTTY_RESOURCES_DIR:-}" ]; then
+    printf "  ${DIM}Cmd+D${RST}              Split pane\n"
+    printf "  ${CYAN}roasty${RST}             Launch dashboard in new pane\n"
+    printf "  ${DIM}Cmd+Shift+←/→${RST}      Resize panes\n"
+    printf "  ${DIM}Cmd+Shift+F${RST}        Zoom/unzoom a pane\n"
+    printf "  ${DIM}Cmd+Shift+=${RST}        Equalize panes\n"
+  else
+    printf "  Tip: Use ${CYAN}Ghostty${RST} terminal for the best split-pane experience\n"
+    printf "  ${DIM}https://ghostty.org${RST}\n"
+  fi
+
+  echo ""
+  info "Starting Claude Code in $project_name..."
+  echo ""
+
+  cd "$project_dir"
+  if command -v claude >/dev/null 2>&1; then
+    exec claude
+  else
+    err "Claude Code not found. Install from: https://claude.ai/download"
+    exec "$SHELL"
+  fi
 }
 
 cmd_uninstall() {
@@ -335,18 +378,29 @@ cmd_help() {
   printf "  ${BOLD}Commands:${RST}\n"
   printf "    ${CYAN}setup${RST}       Install hooks, create venv, configure Claude Code\n"
   printf "    ${CYAN}launch${RST}      Start the dashboard TUI ${DIM}(default)${RST}\n"
-  printf "    ${CYAN}ghostty${RST}     Install recommended Ghostty config ${DIM}(tabs, splits, theme)${RST}\n"
+  printf "    ${CYAN}open${RST} ${DIM}<dir>${RST}  Open a project — sets dir and launches Claude Code\n"
+  printf "    ${CYAN}ghostty${RST}     Install recommended Ghostty config ${DIM}(tabs, splits, resize)${RST}\n"
   printf "    ${CYAN}status${RST}      Check if everything is configured\n"
   printf "    ${CYAN}uninstall${RST}   Remove hooks and dashboard files\n"
   printf "    ${CYAN}help${RST}        Show this help\n"
   printf "    ${CYAN}version${RST}     Print version\n"
   echo ""
+  printf "  ${BOLD}Dashboard flags:${RST}\n"
+  printf "    ${DIM}--compact, -c${RST}   Force compact mode\n"
+  printf "    ${DIM}--project, -p${RST}   Set project directory for file tree\n"
+  echo ""
   printf "  ${BOLD}Quickstart:${RST}\n"
-  printf "    ${DIM}\$${RST} brew install blessdog/tap/roasty\n"
-  printf "    ${DIM}\$${RST} roasty setup\n"
-  printf "    ${DIM}\$${RST} roasty ghostty  ${DIM}# optional: tabs, splits, Citruszest theme${RST}\n"
-  printf "    ${DIM}\$${RST} ${DIM}# Cmd+D in Ghostty to split, then:${RST}\n"
-  printf "    ${DIM}\$${RST} roasty\n"
+  printf "    ${DIM}\$${RST} curl -sL https://raw.githubusercontent.com/blessdog/Roasty/main/install.sh | bash\n"
+  printf "    ${DIM}\$${RST} roasty open ~/Projects/my-app  ${DIM}# opens project + Claude Code${RST}\n"
+  printf "    ${DIM}\$${RST} ${DIM}# Cmd+D to split, then run${RST} ${CYAN}roasty${RST} ${DIM}in the new pane${RST}\n"
+  echo ""
+  printf "  ${BOLD}Ghostty shortcuts:${RST}\n"
+  printf "    ${DIM}Cmd+D${RST}              Split right\n"
+  printf "    ${DIM}Cmd+Shift+D${RST}        Split down\n"
+  printf "    ${DIM}Cmd+H/L${RST}            Navigate splits\n"
+  printf "    ${DIM}Cmd+Shift+←/→${RST}      Resize panes\n"
+  printf "    ${DIM}Cmd+Shift+F${RST}        Zoom/unzoom pane\n"
+  printf "    ${DIM}Cmd+Shift+=${RST}        Equalize panes\n"
   echo ""
 }
 
@@ -356,12 +410,17 @@ cmd_help() {
 
 case "${1:-launch}" in
   setup)     cmd_setup ;;
-  launch)    cmd_launch ;;
+  launch)    shift; cmd_launch "$@" ;;
+  open)      shift; cmd_open "$@" ;;
   ghostty)   cmd_ghostty ;;
   uninstall) cmd_uninstall ;;
   status)    cmd_status ;;
   help|--help|-h) cmd_help ;;
   version|--version|-v) echo "roasty $VERSION" ;;
+  -c|--compact|-p|--project)
+    # Flags passed directly — forward to launch
+    cmd_launch "$@"
+    ;;
   *)
     err "Unknown command: $1"
     cmd_help
