@@ -30,6 +30,10 @@ Ghostty Terminal
 └──────────────────────────┴──────────────────────────────┘
 ```
 
+## New to Roasty?
+
+**[Read the Getting Started guide](docs/getting-started.md)** — takes you from zero to building your first app, with a full breakdown of every dashboard panel, what agents are, and how to read the stats.
+
 ## Install
 
 ### One-liner (recommended)
