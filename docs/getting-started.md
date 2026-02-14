@@ -41,22 +41,18 @@ You need a Mac and three things installed:
 
 ### Install everything
 
-Open **Terminal** (or any terminal app) and run these commands:
+Open any terminal and run these commands:
 
 ```bash
 # 1. Install Claude Code (the AI coding assistant)
 npm install -g @anthropic-ai/claude-code
 
-# 2. Install Ghostty (a fast, modern terminal)
-brew install --cask ghostty
-
-# 3. Install the icon font (makes the dashboard look great)
+# 2. Install a Nerd Font (gives you nice file-type icons in the dashboard)
 brew install --cask font-jetbrains-mono-nerd-font
 
-# 4. Install Roasty
+# 3. Install Roasty
 brew install blessdog/tap/roasty
 roasty setup
-roasty ghostty
 ```
 
 > **No Homebrew?** Use the one-liner instead:
@@ -72,7 +68,21 @@ roasty status
 
 You should see all green checkmarks. If anything's missing, `roasty setup` will fix it.
 
-Now **quit your terminal** and **open Ghostty** instead. Ghostty is where the magic happens — it supports split panes that let the dashboard live alongside Claude.
+### Pick a terminal
+
+Roasty works in **any terminal** that supports split panes (or even two windows side by side). The dashboard is a standard Python TUI — it just needs color support, which every modern terminal has.
+
+| Terminal | Split pane shortcut | Notes |
+|----------|-------------------|-------|
+| **Ghostty** | Cmd+D | Free, fast, GPU-accelerated. Run `roasty ghostty` for optimized config |
+| **iTerm2** | Cmd+D | Popular, feature-rich. Works great |
+| **Kitty** | Ctrl+Shift+Enter | Fast, keyboard-driven |
+| **Wezterm** | Ctrl+Shift+Alt+% | Cross-platform, configurable |
+| **VS Code terminal** | Split button | If you already use VS Code |
+| **tmux** | Ctrl+B % | Works in any terminal |
+| **Two windows** | — | Just put them side by side |
+
+> **Ghostty recommended** but optional. If you use Ghostty, run `roasty ghostty` to install a config with Citruszest theme, Nerd Font, and resize keybindings. Install it with: `brew install --cask ghostty`
 
 ---
 
@@ -96,17 +106,17 @@ This does two things:
 
 Now split your terminal and launch the dashboard:
 
-```
-Cmd+D          Split the window (dashboard goes on the right)
-roasty         Start the dashboard
-Cmd+H          Go back to Claude on the left
-```
+1. **Split your terminal** — use your terminal's split pane shortcut (Cmd+D in Ghostty/iTerm2, or just open a second window)
+2. In the new pane, run: `roasty`
+3. Navigate back to the Claude pane (Cmd+H in Ghostty, or click the other pane)
 
 That's it — you're set up. Claude on the left, dashboard on the right.
 
 ### Resize the panes
 
-The dashboard doesn't need to be huge. Shrink it to save space:
+The dashboard doesn't need to be huge. Most terminals let you drag the split divider with your mouse, or use keyboard shortcuts:
+
+**Ghostty** (with `roasty ghostty` config installed):
 
 | Shortcut | What it does |
 |----------|-------------|
@@ -114,6 +124,8 @@ The dashboard doesn't need to be huge. Shrink it to save space:
 | `Ctrl+Cmd+Right` | Grow the right pane (dashboard bigger) |
 | `Ctrl+Cmd+=` | Make both panes equal |
 | `Cmd+Shift+F` | Fullscreen the focused pane (toggle) |
+
+**Other terminals**: drag the split divider, or check your terminal's resize shortcuts.
 
 The dashboard automatically switches to **compact mode** when the pane gets narrow, showing a streamlined activity feed.
 

@@ -165,7 +165,7 @@ The status line renders at the bottom of your Claude Code pane:
 - **Claude Code** with hooks support
 - **Python 3.9+**
 - **jq** (auto-installed by the curl installer if missing)
-- **Ghostty** (or any terminal with split panes — iTerm2, tmux, etc.)
+- **Any terminal with split panes** — Ghostty, iTerm2, Kitty, Wezterm, tmux, or even two windows side by side
 - A [Nerd Font](https://www.nerdfonts.com/) for icons (optional but recommended)
 
 ## Hooks Reference
