@@ -77,20 +77,16 @@ fi
 # Nerd Font glyph for AI/model
 MODEL_GLYPH="󰧑"
 
-# Shorten file path for display
-SHORT_FILE=""
+# Full file path for display (~ for home, no truncation)
+FULL_FILE=""
 if [ -n "$LAST_FILE" ]; then
-  SHORT_FILE="${LAST_FILE/#$HOME/~}"
-  if [ ${#SHORT_FILE} -gt 40 ]; then
-    SHORT_FILE="$(basename "$LAST_FILE")"
-  fi
+  FULL_FILE="${LAST_FILE/#$HOME/~}"
 fi
 
 # Build the status line
-printf "${CYAN}${MODEL_GLYPH} %s${RST} ${DIM}│${RST} ${YELLOW}%s${RST} ${DIM}│${RST} %s ${DIM}│${RST} ${GREEN}+%s${RST}/${RED}-%s${RST}" \
-  "$MODEL" "$COST_FMT" "$DUR_FMT" "$LINES_ADD" "$LINES_DEL"
-if [ -n "$SHORT_FILE" ]; then
-  printf " ${DIM}│${RST} ${CYAN} %s${RST}" "$SHORT_FILE"
+printf "${CYAN}${MODEL_GLYPH} %s${RST}" "$MODEL"
+if [ -n "$FULL_FILE" ]; then
+  printf " ${DIM}│${RST} ${CYAN} %s${RST}" "$FULL_FILE"
 fi
 printf "\n${BAR_COLOR}%s${RST} %s%% ${DIM}│${RST} %s/%s" \
   "$BAR" "$USED_PCT" "$IN_FMT" "$OUT_FMT"
